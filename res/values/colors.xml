@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="main_bg_color">#ff006666</color>
+    <color name="round1_color">#ffff3366</color>
+    <color name="round2_color">#ffff3366</color>
+    <color name="round3_color">#ffffccff</color>
+    <color name="round4_color">#ffffffff</color>
+    <color name="white">#ffffffff</color>
+    <color name="black">#ff000000</color>
+
+    <color name="content_title">#ff993333</color>
+</resources>
