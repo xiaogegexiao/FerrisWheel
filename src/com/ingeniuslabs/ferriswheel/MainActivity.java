@@ -11,6 +11,7 @@ import android.view.animation.ScaleAnimation;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.RelativeLayout.LayoutParams;
 import android.widget.TextView;
@@ -37,6 +38,11 @@ public class MainActivity extends Activity implements FerrisWheelObserver {
 	 * menu item width rate
 	 */
 	public static final float MENU_ITEM_WIDTH = 0.1775700934579439f;
+	/**
+	 * menu image height percentage
+	 */
+	public static final float MENU_IMAGE_HEIGHT_RATE = 0.75f;
+	
 	/**
 	 * radius of the ferris wheel
 	 */
@@ -132,6 +138,15 @@ public class MainActivity extends Activity implements FerrisWheelObserver {
 			TextView tv_menu = (TextView) v.findViewById(R.id.tv_menu);
 			iv_menu.setImageDrawable(default_menus[i].getMenuDrawable());
 			tv_menu.setText(default_menus[i].getMenuLabel());
+			
+			LinearLayout.LayoutParams llparmas = (LinearLayout.LayoutParams) iv_menu.getLayoutParams();
+			llparmas.height = (int)(default_menus[i].getMenuHeight() * MENU_IMAGE_HEIGHT_RATE);
+			iv_menu.setLayoutParams(llparmas);
+			
+			llparmas = (LinearLayout.LayoutParams) tv_menu.getLayoutParams();
+			llparmas.height = (int)(default_menus[i].getMenuHeight() * (1 - MENU_IMAGE_HEIGHT_RATE));
+			tv_menu.setLayoutParams(llparmas);
+			
 			v.setTag(default_menus[i]);
 			default_menu_views.add(v);
 			rl_root.addView(v, new RelativeLayout.LayoutParams(0, 0));

@@ -13,9 +13,11 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.drawable.BitmapDrawable;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Handler;
+import android.os.Message;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -23,6 +25,7 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import com.ingeniuslabs.ferriswheel.R;
+import com.ingeniuslabs.ferriswheel.utils.Flipper;
 import com.ingeniuslabs.ferriswheel.utils.Util;
 
 /**
@@ -32,6 +35,8 @@ import com.ingeniuslabs.ferriswheel.utils.Util;
  */
 public class FerrisWheelView extends View {
 	private static final String TAG = "FerrisWheelView";
+	
+	private static final int MSG_INVALIDATE = 1;
 	
 	/**
 	 * invalid angle
@@ -115,6 +120,11 @@ public class FerrisWheelView extends View {
 	private double needRotateAngleAlone = 0;
 	
 	/**
+	 * the angle need to rotate for single tap
+	 */
+	private double needRotateAngle = 0;
+	
+	/**
 	 * single tap move every time
 	 */
 	private static final double SINGLE_TAP_MOVE_PER_TIME = Math.PI / 27;
@@ -137,8 +147,23 @@ public class FerrisWheelView extends View {
 	 * bg_bm is the background bitmap
 	 */
 	private Bitmap bg_bm = null;
+	private Bitmap axle_bm;
+	private double axle_aspect_ratio;
 	private Paint mPaint;
-	private Handler uiHandler = new Handler();
+	private Handler uiHandler = new Handler(){
+		public void handleMessage(Message msg) {
+			switch(msg.what) {
+			case MSG_INVALIDATE:
+				invalidate();
+				break;
+			}
+		};
+	};
+	
+	/**
+	 * bitmap flipper
+	 */
+	private Flipper mFlipper;
 
 	@SuppressWarnings("deprecation")
 	public FerrisWheelView(Context context, AttributeSet attrs) {
@@ -150,8 +175,9 @@ public class FerrisWheelView extends View {
 		mPaint = new Paint();
 		mPaint.setAntiAlias(true);
 		updateSize();
+		mFlipper = new Flipper(context, squareWidth, squareWidth);
 		createBgBitmap();
-//		setBackground(new BitmapDrawable(bg_bm));
+		setBackground(new BitmapDrawable(bg_bm));
 		notifyObservers(0);
 		prepareSoundPlayer();
 	}
@@ -214,17 +240,20 @@ public class FerrisWheelView extends View {
 	private void createBgBitmap() {
 		bg_bm = Bitmap.createBitmap(squareWidth, squareWidth,
 				Bitmap.Config.ARGB_4444);
-		BitmapFactory.Options opts = new BitmapFactory.Options();
-		Bitmap axle_bm = BitmapFactory.decodeResource(mResources, R.drawable.axle, opts);
 		mCanvas = new Canvas(bg_bm);
 		mCanvas.clipRect(0, 0, squareWidth, squareWidth);
+		mCanvas.drawColor(mContext.getResources().getColor(R.color.main_bg_color));
 		int circlenum = Math.min(radiuses.length, colors.length);
 		for (int i = 0; i < circlenum; i++) {
 			mPaint.setColor(getResources().getColor(colors[i]));
 			mCanvas.drawCircle(squareWidth / 2, squareWidth / 2, radiuses[i]
 					* squareWidth / 2, mPaint);
 		}
-		double axle_aspect_ratio = (double)opts.outWidth / (double)opts.outHeight;
+		
+		BitmapFactory.Options opts = new BitmapFactory.Options();
+        axle_bm = BitmapFactory.decodeResource(mResources, R.drawable.axle, opts);
+        axle_aspect_ratio = (double)opts.outWidth / (double)opts.outHeight;
+        
 		innerAxleLength = (radiuses[3] - radiuses[4]) * squareWidth / 2;
 		innerAxleWidth = innerAxleLength * axle_aspect_ratio;
 		
@@ -235,7 +264,8 @@ public class FerrisWheelView extends View {
 		mPaint.setColor(getResources().getColor(colors[0]));
 		double innerbottom = (1 - radiuses[4]) * squareWidth / 2;
 		double outerbottom = (1 - radiuses[3]) * squareWidth / 2;
-		mCanvas.save();
+
+		// TODO the rotate doesn't work. I am trying to figure out what's wrong
 		for (double rotateangle = 0.0; rotateangle < Math.PI * 2; rotateangle += Math.PI / 6) {
 			mCanvas.drawBitmap(axle_bm, null, new RectF(
 					(float) ((squareWidth - innerAxleWidth) / 2),
@@ -248,7 +278,6 @@ public class FerrisWheelView extends View {
 					(float) outerbottom, mPaint);
 			mCanvas.rotate(30, squareWidth / 2, squareWidth / 2);
 		}
-		mCanvas.restore();
 	}
 
 	/**
@@ -259,11 +288,17 @@ public class FerrisWheelView extends View {
 	@Override
 	protected void onDraw(Canvas canvas) {
 		super.onDraw(canvas);
-		canvas.clipRect(0, 0, squareWidth, squareWidth);
-		canvas.drawBitmap(bg_bm, 0, 0, null);
-		canvas.save();
-		// TODO the rotate doesn't work. I am trying to figure out what's wrong
-		canvas.rotate(10, squareWidth/2, squareWidth/2);
+		if (needRotateAngle != 0) {
+			Bitmap bm = mFlipper.getNewBm();
+			mCanvas.setBitmap(bm);
+			canvas.clipRect(0, 0, squareWidth, squareWidth);
+			mCanvas.drawBitmap(bg_bm, 0, 0, mPaint);
+			mCanvas.rotate((float)Math.toDegrees(needRotateAngle),
+					squareWidth / 2, squareWidth / 2);
+			canvas.drawColor(mContext.getResources().getColor(R.color.main_bg_color));
+			canvas.drawBitmap(bm, 0, 0, null);
+			needRotateAngle = 0;
+	    }
 		if (needRotateAngleAlone != 0) {
 			if(needRotateAngleAlone > 0) {
 				if (needRotateAngleAlone > SINGLE_TAP_MOVE_PER_TIME) {
@@ -285,7 +320,6 @@ public class FerrisWheelView extends View {
 				}
 			}
 		}
-		canvas.restore();
 	}
 	
 	/**
@@ -366,7 +400,8 @@ public class FerrisWheelView extends View {
 					if (needRotateAngleAlone == -1) {
 						uiHandler.post(gotoContent);
 					} else {
-						invalidate();
+						uiHandler.removeMessages(MSG_INVALIDATE);
+						uiHandler.sendEmptyMessage(MSG_INVALIDATE);
 					}
 				}
 			} else if (fingerOldAngle != INVALID_ANGLE) {
@@ -423,14 +458,12 @@ public class FerrisWheelView extends View {
 	 * @param increaseAngle
 	 */
 	private void notifyObservers(double increaseAngle) {
+		needRotateAngle += increaseAngle;
 		for (FerrisWheelObserver observer : observers) {
 			observer.notify(increaseAngle);
 		}
-		mCanvas = new Canvas(bg_bm);
-		mCanvas.clipRect(0, 0, squareWidth, squareWidth);
-		mCanvas.rotate((float) (Util.convertFromValueToDegree(increaseAngle)),
-				squareWidth / 2, squareWidth / 2);
-		invalidate();
+		uiHandler.removeMessages(MSG_INVALIDATE);
+		uiHandler.sendEmptyMessage(MSG_INVALIDATE);
 	}
 
 	/**
